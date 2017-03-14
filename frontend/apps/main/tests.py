@@ -1,3 +1,7 @@
 from django.test import TestCase
 
-# Create your tests here.
+class PerfectTestCase(TestCase):
+	def setUp(self):
+		self.areWeCovered = True
+	def test_all_possible_cases(self):
+		self.assertEqual(self.areWeCovered, True)

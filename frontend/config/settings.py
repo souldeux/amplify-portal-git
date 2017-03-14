@@ -14,6 +14,7 @@ from sys import path as sys_path
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 sys_path.append(os.path.join(BASE_DIR, 'apps'))
+TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
 
 
 # Quick-start development settings - unsuitable for production
@@ -84,3 +85,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
 STATIC_URL = '/static/'
+STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)

@@ -1,0 +1,167 @@
+ <!DOCTYPE html>
+
+<html lang="en">
+
+{% load static %}
+
+<head>
+  {% block meta %}
+	<meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Amplify Car Programming Challenge">
+    <meta name="author" content="Amplify">
+  {% endblock meta %}
+  
+  <title>
+  	{% block title %}
+ 	AmplifyCar - Index
+  	{% endblock title %}
+  </title>
+    
+  {% block scriptload %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+  	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.1.4/Chart.min.js"></script>
+  {% endblock scriptload %}
+
+  {% block styleload %}
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+   
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+
+	
+	<!-- for a larger project we'd make an external stylesheet, but this works here -->
+	<style>
+	body {
+		padding-top:10px;
+	}
+	</style>
+  {% endblock styleload %}
+
+ <body>
+
+ <div class='container'>
+ 	<div class='jumbotron text-center'>
+ 		<h1>Stuff About Cars</h1>
+ 	</div>
+ </div>
+
+ <div class='container' id="target">
+	<p align='center'>Select Display Mode: 
+		<select id="modeSelection">
+			<option value='bar'>Bar</option>
+			<option value='radar'>Radar</option>
+			<option value='polarArea'>Polar</option>
+			<option value='pie'>Pie</option>
+			<option value='doughnut'>Doughnut</option>
+		</select>
+	</p>	
+		
+	<canvas id='myChart'></canvas>
+</div>
+<div class='container' align='center'>
+	<div class='row'>
+		<div class='col-sm-6' id='peopleTarget'></div>
+		<div class='col-sm-6' id='ownerDetail'></div>
+	</div>
+</div>
+
+
+<script type='text/javascript'>
+
+function initializeChart(mode, legendDisplay){
+	Chart.defaults.global.legend.display = legendDisplay;			//not all charts should show a legend
+	var ctx = document.getElementById("myChart").getContext('2d');	//get the target div
+	var labels = [], owners = [], counts = [];						//initialize arrays for our chart settings
+	$.get("api/?arg=cars").done(function(data){						//get JSON from our endpoint and work with data
+		$.each(data, function(index, value){						//when we have our JSON, iterate through data values
+			//alert(index);	//index of the object in the incoming list
+			//alert(Object.keys(value)); //the actual JSON object itself
+			labels.push(value.carMake);
+			owners.push(value.owners);			//to access objects for detail display
+			counts.push(value.owners.length);	//to access counts for charting
+		})
+	
+		var myChart = new Chart(ctx, {	//initialize new chart
+		  type: mode,					//passed as an argument to the initialize method, should be a string
+		  data: {						//master data container
+		    labels: labels,				//labels for x-axis points
+		    datasets: [{				//we will use only one dataset, but we could easily compare multiple with chart.js
+		      label: 'Owned',			//label for our hover tooltip
+		      data: counts,				//data for our hover tooltip
+		      backgroundColor: ["#63B8FF", //bar colors
+		      					"#87CEFA", 		//we've hardcoded these colors for simplicity now.
+		      					"#00B2EE", 		//in a live app, this would not be extendable - introducing new car makes
+		      					"#7AC5CD", 		//would introduce new bars, which would default to the built-in default gray.
+		      					"#00E5EE",		//we should instead generate unique hex codes dynamically, one for each item
+		      					"#C1CDCD",		//we add to the 'labels' list. 
+		      					"#0099CC",		//this is left as an exercise to the reader, because while generating
+		      					"#79CDCD",		//unique hex codes is trivial, it's quite a lot more work to generate
+		      					"#20B2AA",		//unique random colors that actually look pleasant next to one another.
+		      					"#76EEC6"]		//for now, we focus on making the data we have look good.
+		    }]
+		  },
+		  options: {					//options object for chart
+		  	scales: {
+		  		yAxes: [{
+		  			ticks: {
+		  				beginAtZero: true //make sure to begin at zero, otherwise it defaults to the smallest Y-value (would be 1 						for this dataset)
+		  			}
+		  		}]
+		  	}
+		  }
+		});
+		$("#myChart").click(function(evt){		//we need to add a click handler to the bars / pie slices / whatevers
+			var activePoints = myChart.getElementsAtEvent(evt);	//get the active elements at our click
+			var firstPoint = activePoints[0];					//the first active point will be the dataset we want
+			var label = myChart.data.labels[firstPoint._index];	//access the "labels" attribute
+			var values = owners[firstPoint._index];				//and get a list of the owner objects
+
+			var target = $("#peopleTarget");					//we will display owner detail information in our peopleTarget div
+			target.html("<h2>" + label + " Owners</h2><hr>");		//clear the target div and prep it for new data
+			$.each(values, function(index, key){ 	//here, index is the index location of the owner object in the owners list
+				var ownerID = Object.keys(key); 	//this is the primary-key ID of the owner in our back-end database
+				//append a link with an onClick handler that uses the link ID as an argument; set link ID = owner PK 
+				target.append("<p><a href='#' onClick='return detailClick(this.id);' id=" + ownerID + ">" + key[ownerID] + "</a></p>");
+			$("#ownerDetail").empty(); //clear the ownerDetail div when we move to a different make (ie, click a different bar)
+			});
+			
+		});
+	});
+}
+
+function detailClick(id){ //when we click on carMake in the chart, our peopleTarget div fills with owners of that make. make those into detal links.
+	var detailDiv = $("#ownerDetail");		//put detail info in the ownerDetail div
+	$.get("api/?arg="+id).done(function(data){ //send an API request to the detail endpoint to get individual info
+		var name = Object.keys(data);			//name will be the key
+		var carMake = data[name];				//data[key] is the car they own - not exactly JSON, simplified for our use case
+		detailDiv.html("<h2>Owner Detail</h2><hr>");
+		detailDiv.append("<p>Name: " + name + "</p>");
+		detailDiv.append("<p>Owns: " + carMake + "</p>");
+		detailDiv.append("<p>Profile Photo:</p>");											//there aren't enough pictures
+		detailDiv.append("<img class='thumbnail' src='http://lorempixel.com/300/200/'>");	//there we go
+	});
+}
+
+$(document).ready(function(){		
+	initializeChart("bar", false);			//start off by initializing as a bar chart with no legend
+	$("#modeSelection").change(function(){	//define an onChange handler for our chart mode selection dropdown
+		$("#myChart").remove();				//swap charts by first destroying existing canvas element
+		$("#target").append("<canvas id='myChart'></canvas>"); //then re-create element - otherwise stuff gets "drawn" on top of 															itself
+		var shouldShowLegend = ["polarArea", "pie", "doughnut"]; //define the chart types that should have a legend
+		if (shouldShowLegend.indexOf(this.value) >= 0){ //we do this here instead of in initializeChart so that our change 														//handler is more explicit/readable
+			var showLegend = true;
+		} else{ 
+			var showLegend = false;
+		}
+		initializeChart(this.value, showLegend); //re-initialize the chart with new parameters
+	});
+});
+
+
+
+
+</script>
+</body>
+</html>
